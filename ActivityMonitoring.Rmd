@@ -1,0 +1,145 @@
+### Course - Reproducible Research
+#### Week 2 Assignment - R Markdown & Knitr
+Suleman Wadur 
+
+
+Loading data file 
+```{r Load_data, echo=TRUE}
+## Turns off exponential notation of numeric values such as when using the mean function
+options(scipen = 999)
+
+## Load needed libraries
+library(dplyr)
+
+
+## Set working directory
+workdir <- "C:/Move 4/Coursera/DataScience/Course5-ReproducibleResearch/Week2/Assignment/RepData_PeerAssessment1"
+setwd(workdir)
+
+
+
+if (file.exists("activity.zip") && !file.exists("activity.csv")) {
+  unzip(zipfile="./activity.zip", exdir=".")
+}
+
+if(!file.exists("activity.csv")) {
+  stop("One of the input files is missing!")
+}
+
+activitydata <- read.csv("activity.csv")
+  
+```
+  
+  
+  
+#### Mean total number of steps taken per day
+```{r TotalSteps}
+#plot(activitydata$date, mean(is.na(activitydata$steps)))  DailyMean=activitydata$steps
+data0 <- subset(activitydata, !is.na(steps))
+TotalStepsByDay <- setNames(aggregate(data0$steps, list(data0$date), FUN=sum), c("Day", "Total.Steps"))
+#plot(data1$x, data1$Day, type = "h", xlab = "Day", ylab = "Mean daily steps", main = "Average total steps per day")
+
+TotalStepsByDay
+```
+  
+Histogram: total number of steps taken per day
+```{r HistogramTotalSteps}
+hist(TotalStepsByDay$Total.Steps, main = "Histogram: Total Number of Steps per Day", col = "lightblue", xlab = "Total Steps per day" )
+```
+
+Mean and Median of Steps Taken per day
+```{r MeanMediaSteps}
+meanOfSteps <- mean(TotalStepsByDay$Total.Steps)
+medianOfSteps <- median(TotalStepsByDay$Total.Steps)
+```
+Mean is `r meanOfSteps` and median is `r medianOfSteps`  
+  
+  
+#### Time Series: Average Daily Activity Pattern
+```{r AverageDailyActivityPattern}
+ActivtyPattern <- aggregate(steps ~ interval, data0, mean)
+plot(ActivtyPattern$interval, ActivtyPattern$steps, type = "l", main="Average Daily Activity Pattern", ylab = "Average Daily Steps", xlab = "5-minute Interval")
+
+maxSteps <- ActivtyPattern[which.max(ActivtyPattern$steps),]
+
+```
+5-minute interval with the maximum number of steps is `r maxSteps$interval` with `r maxSteps$steps` steps
+
+
+
+#### Imputing missing values
+```{r MIssingValues}
+# get a vector of complete cases. This will return true or false, with rows having missing values as TRUE
+y <- !complete.cases(activitydata)
+
+# counts the number of records with TRUE, indicating they have missing records.
+mrecords <- sum(y)
+```
+There are a total of `r mrecords` records with missing values
+  
+  
+Using the mean of 5-minute interval, a new variable is added for records with missing steps...
+```{r newData}
+#create a new variable with the copy of the steps data. This will be updated in the function below
+activitydata$new.steps <- activitydata$steps
+
+#determine average steps by interval
+meansByInterval <- aggregate(steps ~ interval, data = activitydata, mean)
+
+# gets index of all rows in the original dataset with missing data
+p <- which(is.na(activitydata), arr.ind=TRUE)
+
+for(i in 1:nrow(p)) {
+  j <- p[i,1]
+  
+  #gets index of the mean interval stored in meansByInterval data frame
+  indexOfMeanInterval = which(meansByInterval$interval == activitydata[i,3])
+  
+  #update the new steps with the mean of its interval
+  activitydata[j, 4] <- meansByInterval[indexOfMeanInterval,2]
+}
+```
+
+
+Calculating summary on updated data...
+```{r HistogramStepsUpdated}
+TotalStepsByDay <- setNames(aggregate(activitydata$new.steps, list(activitydata$date), FUN=sum), c("Day", "Total.Steps"))
+hist(TotalStepsByDay$Total.Steps, main = "Histogram: Total Number of Steps per Day: Missing Data corrected", col = "lightblue", xlab = "Total Steps per day" )
+```
+
+```{r MeanMediaStepsUpdated}
+NewMeanOfSteps <- mean(TotalStepsByDay$Total.steps)
+NewMedianOfSteps <- median(TotalStepsByDay$Total.steps)
+```
+Old Mean: `r meanOfSteps` and Old median: `r medianOfSteps`  
+New Mean: `r NewMeanOfSteps` and New median: `r NewMedianOfSteps`  
+
+From the histogram above, the frequency has certainly increased. Only the median total daily steps seems to have changed when the missing data got updated.  
+
+
+#### Activity Pattern: Weekdays vs Weekends
+```{r WeekDayPattern, fig.height=10}
+#loop through data and derive the weekend/weekday
+for (i in 1:nrow(activitydata)) {
+  if (weekdays(as.Date(activitydata$date[i])) == "Saturday" | weekdays(as.Date(activitydata$date[i])) == "Sunday")
+      activitydata$weekday[i] <- "weekend"
+  else
+    activitydata$weekday[i] <- "weekday"
+}
+
+TotalStepsByWeekDay <- setNames(aggregate(activitydata$new.steps~activitydata$weekday+activitydata$interval, list(activitydata$weekday), FUN=mean), c("Weekday", "Interval", "Average.Steps"))
+
+#TotalStepsByWeekDay
+
+
+#defines a 2 row, 1 column panel plot area
+par(mfrow = c(2,1) )
+
+#subset data according to weekend or weekday and plot the time series graph
+dday <- subset(TotalStepsByWeekDay, Weekday == "weekday")
+dend <- subset(TotalStepsByWeekDay, Weekday == "weekend")
+plot(dday$Interval, dday$Average.Steps, type = "l", main="Activity Pattern - Weekday", ylab = "Average number of Steps", xlab = "5-minute Interval", col = "lightblue" )
+
+plot(dend$Interval, dend$Average.Steps, type = "l", main="Activity Pattern - weekend", ylab = "Average number of Steps", xlab = "5-minute Interval", col = "lightblue")
+```
+
